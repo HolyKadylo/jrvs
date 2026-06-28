@@ -12,8 +12,9 @@ MEDIA = "program anonymous"
 
 
 def respond(source, epoch):
-    # TODO: real response policy. For now emit a placeholder acknowledgement.
-    return f"(response to {source} beat @ {epoch})"
+    # TODO: temporary placeholder -- ignores input/beat entirely, always answers
+    # the same fixed string regardless of source or content.
+    return "беззмістовно"
 
 
 def main():
