@@ -2,7 +2,9 @@
 """File-based message bus for jrvs.
 
 All inter-process communication goes through append-only text files under the
-``bus/`` directory next to this module. Each line is one message whose fields are
+``temp/`` directory next to this module. ``temp/`` holds nothing but these
+runtime-created channel files -- it's safe to delete at any time; the next
+publish/tail call recreates it. Each line is one message whose fields are
 TAB-separated. Producers call :func:`publish`; consumers iterate :func:`tail`.
 
 Field values are sanitised so they can never contain a TAB or newline, which keeps
@@ -12,7 +14,7 @@ import os
 import time
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-BUS_DIR = os.path.join(ROOT, "bus")
+BUS_DIR = os.path.join(ROOT, "temp")
 
 
 def ensure_bus():
@@ -28,7 +30,7 @@ def _clean(value):
 
 
 def publish(channel, *fields):
-    """Append one TAB-separated message to ``bus/<channel>``."""
+    """Append one TAB-separated message to ``temp/<channel>``."""
     ensure_bus()
     line = "\t".join(_clean(f) for f in fields)
     with open(path(channel), "a", encoding="utf-8") as fh:

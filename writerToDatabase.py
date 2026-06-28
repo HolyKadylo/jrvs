@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """writerToDatabase: persists chatLog and accumulates inline word weights.
 
+chatLog lives at ``memory/chatLog`` -- persistent, never auto-deleted. The
+``memory/`` directory is recreated automatically if missing.
+
 chatLog line layout (one message per line)::
 
     <direction>\t<media pairs>\t<timestamp pairs>\t<word pairs>
@@ -19,7 +22,8 @@ separate per-occurrence store is needed -- each new occurrence simply bumps it.
 import os
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-CHATLOG = os.path.join(ROOT, "chatLog")
+MEMORY_DIR = os.path.join(ROOT, "memory")
+CHATLOG = os.path.join(MEMORY_DIR, "chatLog")
 
 
 def _parse_pairs(field):
@@ -63,6 +67,7 @@ def _totals(lines):
 
 
 def _write(lines):
+    os.makedirs(MEMORY_DIR, exist_ok=True)  # recreate if memory/ was deleted
     tmp = CHATLOG + ".tmp"
     with open(tmp, "w", encoding="utf-8") as fh:
         for direction, media, ts, words in lines:

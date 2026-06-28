@@ -11,12 +11,13 @@
 # non-zero instead of hanging in wait.
 #
 # Feed input with bashInput.sh / chat.sh / pythonInput.py, or by appending a line
-# to bus/input.events directly.
+# to temp/input.events directly. temp/ holds only runtime-created files and is
+# safe to delete; it's recreated automatically.
 set -u
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$DIR" || exit 1
-mkdir -p bus
+mkdir -p temp
 
 pids=()
 declare -A NAMES=()
