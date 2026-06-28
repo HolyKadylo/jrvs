@@ -5,10 +5,16 @@ Watches the ``beat.signals`` channel; for each beat it builds a response and
 publishes it to ``output.events``, where the output windows (and layerAssigner,
 for chatLog) pick it up.
 """
+import os
+
 import bus
 import timeStamper
 
-MEDIA = "program anonymous"
+# Picked once at startup: the project folder name (chat.sh lives alongside this
+# script), used to label program output the same way bash input is labelled by
+# the Linux username.
+PROJECT_NAME = os.path.basename(os.path.dirname(os.path.abspath(__file__)))
+MEDIA = f"program {PROJECT_NAME}"
 
 
 def respond(source, epoch):

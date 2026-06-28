@@ -43,5 +43,5 @@ fi
 # Main transcript: read user lines and forward them to the bash input channel.
 while IFS= read -r -p "$USERNAME> " line; do
     line=${line//$'\t'/ }
-    printf '%s\t%s\n' 'bash anonymous' "$line" >> "$TEMP/input.events"
+    printf '%s\t%s\n' "bash $USERNAME" "$line" >> "$TEMP/input.events"
 done

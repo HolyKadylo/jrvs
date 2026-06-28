@@ -2,7 +2,7 @@
 # run.sh -- start all backend services and supervise them.
 #
 #   ./run.sh           # beater in QA mode (one response per input)
-#   ./run.sh timed 3   # beater in timedWithParameter mode, every 3 seconds
+#   ./run.sh -b 3      # beater in timedWithParameter mode, every 3 seconds
 #
 # Starts layerAssigner (chatLog writer), outputThinker (responder) and beater,
 # then blocks. Ctrl-C / kill -TERM / kill -INT on this script stops every
@@ -14,6 +14,25 @@
 # to temp/input.events directly. temp/ holds only runtime-created files and is
 # safe to delete; it's recreated automatically.
 set -u
+
+usage() {
+    echo "usage: run.sh [-b SECONDS]" >&2
+    echo "  -b SECONDS   run beater in timedWithParameter mode with this period" >&2
+    echo "               (default: QA mode, one response per input)" >&2
+}
+
+BEATER_PERIOD=""
+while getopts ":b:" opt; do
+    case "$opt" in
+        b) BEATER_PERIOD="$OPTARG" ;;
+        :) echo "run.sh: -b requires a value (seconds)" >&2; usage; exit 2 ;;
+        \?) echo "run.sh: unknown option -$OPTARG" >&2; usage; exit 2 ;;
+    esac
+done
+if [ -n "$BEATER_PERIOD" ] && ! [[ "$BEATER_PERIOD" =~ ^[0-9]+$ ]]; then
+    echo "run.sh: -b expects an integer number of seconds, got '$BEATER_PERIOD'" >&2
+    exit 2
+fi
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$DIR" || exit 1
@@ -67,8 +86,8 @@ trap 'cleanup; exit 130' INT TERM
 
 start layerAssigner python3 layerAssigner.py
 start outputThinker python3 outputThinker.py
-if [ "${1:-}" = "timed" ]; then
-    start beater python3 beater.py timedWithParameter "${2:-3}"
+if [ -n "$BEATER_PERIOD" ]; then
+    start beater python3 beater.py timedWithParameter "$BEATER_PERIOD"
 else
     start beater python3 beater.py QA
 fi
