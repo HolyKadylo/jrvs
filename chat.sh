@@ -18,8 +18,12 @@ GREEN=$'\033[32m'
 RESET=$'\033[0m'
 
 # Echo program responses (output.events) into this transcript, in green.
+# Responses can arrive while the "you> " prompt is sitting on screen waiting for
+# input; clear that line first so the response always lands on its own line, then
+# reprint the prompt so it's never silently lost underneath the response text.
 ( tail -n0 -F "$BUS/output.events" | while IFS=$'\t' read -r media text; do
-      printf '%s%s%s\n' "$GREEN" "$text" "$RESET"
+      printf '\r\033[K%s%s%s\n' "$GREEN" "$text" "$RESET"
+      printf 'you> '
   done ) &
 TAIL_PID=$!
 trap 'kill "$TAIL_PID" 2>/dev/null' EXIT INT TERM
