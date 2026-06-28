@@ -1,0 +1,6 @@
+# runtime artifacts produced by the pipeline
+temp/
+memory/chatLog
+memory/chatLog.tmp
+__pycache__/
+*.pyc
