@@ -33,6 +33,10 @@ signature so `layerAssigner` is unchanged.
    FROM token_weights ORDER BY total_weight DESC, form`.
 4. Repoint `writerToDatabase.py` to delegate to `db.py` (keep the `record` and
    `main` names) so `layerAssigner`'s import stays valid.
+5. Enforce integer weights at the point of write and guard parsing against a
+   non-integer weight, auditing every producer (`inputThinker.weight`,
+   `layerAssigner._assign`, the store). Carried from TODO: a single malformed
+   weight previously made the whole flat `chatLog` unreadable.
 
 Acceptance: a scripted sequence of `record()` calls yields `token_weights` equal
 to the legacy accumulation for the same inputs; `main()` prints identical
@@ -48,6 +52,10 @@ token/total ordering; prior rows are not rewritten (verify by row counts).
    (`mkdir -p memory`).
 4. Update the README "chatLog format" section to describe the database and name
    the converter (Phase 3) as the way to obtain the legacy text format.
+5. Rename `layerAssigner.py` to reflect its role (e.g. `hub.py` / `dispatcher.py`)
+   and update all imports and references (`run.sh`, README). Carried from TODO:
+   free the "layer" term before it is reused for a real layer architecture. This
+   cutover already edits those references.
 
 Acceptance: `./run.sh` plus a few input events produces rows in
 `memory/chatLog.db`; no flat `chatLog` file is recreated; `PRAGMA
@@ -131,6 +139,47 @@ Postgres path is documented; the default SQLite behaviour is unchanged.
    grows, in contrast to the legacy O(file size) rewrite.
 
 Acceptance: all checks pass; README updated.
+
+## Carried-over items from TODO.md
+
+Consolidated here when `TODO.md` was removed.
+
+Addressed by this refactor:
+
+- **writerToDatabase — full-file rewrite on every message (scalability).** The
+  reason for this refactor; resolved by Phases 1 and 5. Priority: Medium.
+- **writerToDatabase — weight-type consistency.** Enforce `int` at write, guard
+  parsing. Scheduled in Phase 1, task 5. Priority: Medium.
+- **layerAssigner.py — rename to free the "layer" term** (e.g. `hub.py` /
+  `dispatcher.py`); update imports/`run.sh`/README. Scheduled in Phase 2, task 5.
+
+Out of scope for this refactor — preserved for later:
+
+- **bus.py — concurrent write safety** (lines 36–37): the append write has no
+  file locking; simultaneous multi-process writes can interleave mid-line and
+  corrupt TAB records. Fix: wrap with `fcntl.flock(LOCK_EX/LOCK_UN)` or an atomic
+  write. Priority: Low if single-writer; High if concurrency is introduced —
+  relevant before Phase 6 (multi-host).
+- **bus.py — `tail()` unclosed handle** (line 48): `open(target, "a").close()`
+  relies on CPython refcounting. Fix: `with open(target, "a"): pass`.
+  Priority: Low.
+- **bus.py — `tail()` no exit condition; session modes:** add Infinite vs Timed
+  modes; timed termination must also stop dependent scripts (sentinel `control`
+  channel, PID file + SIGTERM, or a `temp/stop` flag file). Priority: Medium —
+  before any unattended or scheduled use.
+- **beater.py — argv validation** (line 32): `float(argv[1])` is unvalidated —
+  non-numeric crashes, `0` busy-loops, negative raises. Fix: try/except, reject
+  `<= 0`, `sys.exit(2)`. Priority: Low manual / Medium automated.
+- **chat.sh — terminal-emulator launch** (lines 37–41): deprecate; `-e` is
+  xterm-specific with silent failures. Action: remove the block; launch external
+  windows manually or via a dedicated launcher. Priority: scheduled for removal.
+- **run.sh — `start()` startup verification** (lines 47–48): the PID is recorded
+  unconditionally, so a service that dies on launch is tracked as live. Fix:
+  after `local pid=$!` add `sleep 0.2; kill -0 "$pid" 2>/dev/null || { echo
+  "run.sh: $name failed to start" >&2; exit 1; }`. Priority: Medium.
+- **run.sh — simultaneous death reporting** (lines 104–108): only the first dead
+  PID is reported. Fix: drop the `break`, collect all dead PIDs before logging.
+  Priority: Low.
 
 ## References
 
