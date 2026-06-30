@@ -1,0 +1,21 @@
+input	bash 14 illya 14	1782826831 1	hello 2
+input	bash 14 illya 14	1782826834 1	howdy 2
+input	bash 14 illya 14	1782827339 1	hello 2
+input	bash 14 illya 14	1782827358 1	hh 3
+input	bash 14 illya 14	1782827374 1	hh 3
+input	bash 14 illya 14	1782827392 1	hh 3
+input	bash 14 illya 14	1782827403 1	howdy 2
+input	bash 14 illya 14	1782828084 1	ii 2
+input	bash 14 illya 14	1782828089 1	ii 2
+input	bash 14 illya 14	1782828207 1	w 1
+input	bash 14 illya 14	1782828235 1	ww 1
+input	bash 14 illya 14	1782828526 1	hey 1
+output	program 5 jrvs 5	1782828527 1	беззмістовно 6
+input	bash 14 illya 14	1782828543 2	whatsup 1
+output	program 5 jrvs 5	1782828543 2	беззмістовно 6
+input	python 2 anonymous 2	1782828624 2	py 1 input 3 test 1 . 1 How 1 are 1 you 1 ? 2
+output	program 5 jrvs 5	1782828624 2	беззмістовно 6
+input	python 2 anonymous 2	1782828678 1	what 1 ' 1 s 1 up 1 with 1 input 3 input 3 ? 2
+output	program 5 jrvs 5	1782828679 1	беззмістовно 6
+input	bash 14 illya 14	1782829049 2	p 2 2 2 p 2 is 1 homosexualism 1
+output	program 5 jrvs 5	1782829049 2	беззмістовно 6

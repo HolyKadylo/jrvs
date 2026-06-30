@@ -1,0 +1,36 @@
+output	program 21 jrvs 20	1782648606 1	беззмістовно 3
+output	program 21 jrvs 20	1782648611 1	беззмістовно 3
+output	program 21 jrvs 20	1782648616 1	беззмістовно 3
+output	program 21 jrvs 20	1782648621 1	беззмістовно 3
+output	program 21 jrvs 20	1782648626 1	беззмістовно 3
+input	bash 10 illya 10	1782648630 1	jello 1
+output	program 21 jrvs 20	1782648631 1	беззмістовно 3
+input	bash 10 illya 10	1782648633 1	приві 3
+input	bash 10 illya 10	1782648635 1	привіт 2
+output	program 21 jrvs 20	1782648636 1	беззмістовно 3
+input	bash 10 illya 10	1782648641 2	привітпривіт 1 привіт 2
+output	program 21 jrvs 20	1782648641 2	беззмістовно 3
+output	program 21 jrvs 20	1782648646 1	беззмістовно 3
+output	program 21 jrvs 20	1782648651 1	беззмістовно 3
+input	bash 10 illya 10	1782648653 1	холл 5
+input	bash 10 illya 10	1782648654 3	о 4
+input	bash 10 illya 10	1782648654 3	о 4
+input	bash 10 illya 10	1782648654 3	о 4
+input	bash 10 illya 10	1782648655 1	о 4
+output	program 21 jrvs 20	1782648656 1	беззмістовно 3
+input	bash 10 illya 10	1782648660 1	трапта 1
+output	program 21 jrvs 20	1782648661 1	беззмістовно 3
+output	program 21 jrvs 20	1782648666 1	беззмістовно 3
+output	program 21 jrvs 20	1782648671 1	беззмістовно 3
+input	python 8 anonymous 6	1782812782 1	Hello 5 , 2 this 2 is 2 test 4 Python 3 input 5
+output	program 21 jrvs 20	1782812783 1	беззмістовно 3
+input	python 8 anonymous 6	1782812935 2	Howdy 1 , 2 this 2 is 2 another 1 python 8 input 5
+output	program 21 jrvs 20	1782812935 2	беззмістовно 3
+input	python 8 anonymous 6	1782813044 2	test 4
+output	program 21 jrvs 20	1782813044 2	беззмістовно 3
+input	python 8 anonymous 6	1782813222 2	test 4 Python 3 input 5
+output	program 21 jrvs 20	1782813222 2	беззмістовно 3
+input	python 8 anonymous 6	1782813241 2	test 4 Python 3 input 5 ! 1
+output	program 21 jrvs 20	1782813241 2	беззмістовно 3
+input	python 8 anonymous 6	1782813283 2	watching 1 tailing 1 python 8 input 5
+output	program 21 jrvs 20	1782813283 2	беззмістовно 3

@@ -4,7 +4,7 @@
 #   ./run.sh           # beater in QA mode (one response per input)
 #   ./run.sh -b 3      # beater in timedWithParameter mode, every 3 seconds
 #
-# Starts layerAssigner (chatLog writer), outputThinker (responder) and beater,
+# Starts hub (chatLog writer), outputThinker (responder) and beater,
 # then blocks. Ctrl-C / kill -TERM / kill -INT on this script stops every
 # service it started (SIGTERM, escalating to SIGKILL after a grace period) and
 # exits. If a service dies on its own, the rest are stopped too and run.sh exits
@@ -84,7 +84,7 @@ cleanup() {
 trap cleanup EXIT
 trap 'cleanup; exit 130' INT TERM
 
-start layerAssigner python3 layerAssigner.py
+start hub python3 hub.py
 start outputThinker python3 outputThinker.py
 if [ -n "$BEATER_PERIOD" ]; then
     start beater python3 beater.py timedWithParameter "$BEATER_PERIOD"

@@ -1,98 +1,59 @@
 #!/usr/bin/env python3
-"""weightChanger: GUI utility to search and update token weights in chatLog.
+"""weightChanger: GUI utility to search and update token weights.
 
-Tokens (words, numbers, punctuation) live at even positions inside each
-space-separated pair field; weights live at odd positions.  A numeric search
-term such as "1" matches only tokens whose text is "1" -- never the weight
-value "1" that follows some other token.  Likewise, changing a weight rewrites
-only the weight slot of matching tokens, not other tokens whose text happens to
-equal the new weight value.
+Tokens are looked up and updated in the SQLite store (memory/weights.db)
+via db.py.  `find_weight` reads token_weights.total_weight; `set_weight`
+overwrites it directly -- the same manual-override semantics as the legacy
+flat-file version.
+
+Note: `occurrences.initial_weight` rows (the per-occurrence deltas) are not
+changed by set_weight.  Run `tools/dbMaintain.py rebuild-weights` afterwards
+if you need the cache and the occurrence history to agree.
 
 TODO bulk change of weights
 TODO change of weights of certain abonent
 """
 import os
+import sqlite3
 import tkinter as tk
 from tkinter import messagebox
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
-CHATLOG = os.path.join(ROOT, "memory", "chatLog")
+ROOT       = os.path.dirname(os.path.abspath(__file__))
+WEIGHTS_DB = os.path.join(ROOT, "memory", "weights.db")
 
-# ── chatLog I/O (mirrors writerToDatabase layout) ───────────────────────────
-
-def _parse_pairs(field):
-    parts = field.split(" ") if field else []
-    pairs = []
-    for i in range(0, len(parts) - 1, 2):
-        pairs.append([parts[i], int(parts[i + 1])])
-    return pairs
-
-
-def _serialize_pairs(pairs):
-    return " ".join(f"{tok} {w}" for tok, w in pairs)
-
-
-def _load():
-    lines = []
-    if os.path.exists(CHATLOG):
-        with open(CHATLOG, "r", encoding="utf-8") as fh:
-            for raw in fh:
-                raw = raw.rstrip("\n")
-                if not raw:
-                    continue
-                f = raw.split("\t")
-                lines.append([
-                    f[0],
-                    _parse_pairs(f[1] if len(f) > 1 else ""),
-                    _parse_pairs(f[2] if len(f) > 2 else ""),
-                    _parse_pairs(f[3] if len(f) > 3 else ""),
-                ])
-    return lines
-
-
-def _write(lines):
-    os.makedirs(os.path.join(ROOT, "memory"), exist_ok=True)
-    tmp = CHATLOG + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
-        for direction, media, ts, words in lines:
-            fh.write("\t".join([
-                direction,
-                _serialize_pairs(media),
-                _serialize_pairs(ts),
-                _serialize_pairs(words),
-            ]) + "\n")
-    os.replace(tmp, CHATLOG)
-
-# ── token operations ─────────────────────────────────────────────────────────
+# ── token operations ──────────────────────────────────────────────────────────
 
 def find_weight(token):
-    """Return current weight of *token* (exact text match at token position),
-    or None if the token is not present in chatLog."""
-    for _, media, ts, words in _load():
-        for section in (media, ts, words):
-            for tok, w in section:
-                if tok == token:
-                    return w
-    return None
+    """Return current total weight of *token*, or None if not in the store."""
+    if not os.path.exists(WEIGHTS_DB):
+        return None
+    conn = sqlite3.connect(WEIGHTS_DB)
+    try:
+        row = conn.execute(
+            "SELECT total_weight FROM token_weights WHERE form = ?", (token,)
+        ).fetchone()
+        return row[0] if row else None
+    finally:
+        conn.close()
 
 
 def set_weight(token, new_weight):
-    """Overwrite the weight of every pair whose TOKEN equals *token*.
-    Weight values of other tokens are never inspected or changed.
-    Returns True when at least one occurrence was updated."""
-    lines = _load()
-    changed = False
-    for _, media, ts, words in lines:
-        for section in (media, ts, words):
-            for pair in section:
-                if pair[0] == token:       # match on token slot, not weight slot
-                    pair[1] = new_weight
-                    changed = True
-    if changed:
-        _write(lines)
-    return changed
+    """Overwrite total_weight for *token* in token_weights.
+    Returns True when an existing row was updated, False when the token is not found."""
+    if not os.path.exists(WEIGHTS_DB):
+        return False
+    conn = sqlite3.connect(WEIGHTS_DB)
+    try:
+        cur = conn.execute(
+            "UPDATE token_weights SET total_weight = ? WHERE form = ?",
+            (new_weight, token)
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
 
-# ── GUI ──────────────────────────────────────────────────────────────────────
+# ── GUI ───────────────────────────────────────────────────────────────────────
 
 class App(tk.Tk):
     def __init__(self):
@@ -200,7 +161,7 @@ class App(tk.Tk):
                 fg="dark green",
             )
         else:
-            self._msg.config(text="Token no longer in log.", fg="red")
+            self._msg.config(text="Token no longer in store.", fg="red")
             self._found_row.pack_forget()
 
 

@@ -24,9 +24,11 @@ jrvs/
 ├── beater.py                 beat scheduler (QA / timedWithParameter)
 ├── outputThinker.py          composes a response per beat
 ├── inputThinker.py           word/punctuation weight policy
-├── layerAssigner.py          pipeline hub: timestamp + tokenize + weight + log
+├── hub.py                    pipeline hub: timestamp + tokenize + weight + log
+├── layerAssigner.py          compatibility shim → hub.py (deprecated)
 ├── timeStamper.py            epoch-seconds helper
-├── writerToDatabase.py       persists chatLog, accumulates inline weights
+├── db.py                     SQLite backend: volumes, weights, record()
+├── writerToDatabase.py       facade over db.py (public interface unchanged)
 ├── wordOccurrenceCounter.py   stub -- not implemented
 ├── bus.py                    shared file-based message bus helper
 ├── run.sh                    starts/supervises the three backend services
@@ -35,15 +37,20 @@ jrvs/
 │   ├── input.events
 │   ├── output.events
 │   └── beat.signals
+├── tools/
+│   ├── exportChatlog.py      converter: SQLite → legacy chatLog text format
+│   └── dbMaintain.py         maintenance: integrity, rebuild-weights, vacuum, backup, stats, prune
 └── memory/                   persistent data -- created automatically
-    └── chatLog
+    ├── weights.db            global token weights + volume manifest
+    └── volumes/
+        └── chatLog.NNNN.db   per-volume messages and occurrences (≤ 1 GB each)
 ```
 
 `temp/` and `memory/` don't need to exist beforehand: every script that touches
-them creates them (and the files inside) on first use via `mkdir -p`/equivalent,
-so deleting either folder is always safe — `temp/` is pure runtime state and
-comes back empty; `memory/chatLog` comes back empty too, but since it's meant to
-be durable, only delete it intentionally (e.g. to reset accumulated weights).
+them creates them on first use, so deleting either folder is always safe —
+`temp/` is pure runtime state and comes back empty; `memory/` holds the SQLite
+databases and comes back as an empty store, but since it's meant to be durable,
+only delete it intentionally (e.g. to reset accumulated weights).
 
 ## File purposes
 
@@ -57,45 +64,45 @@ be durable, only delete it intentionally (e.g. to reset accumulated weights).
 | `beater.py` | Emits beats on `temp/beat.signals`. Two modes: `QA` (one beat per input event) or `timedWithParameter <seconds>` (one beat every N seconds). Selected via `run.sh -b`. |
 | `outputThinker.py` | Watches beats, composes a response, publishes it to `temp/output.events` labelled `program <project-folder>`. Currently a temporary fixed placeholder — see [Known limitations](#known-limitations). |
 | `inputThinker.py` | Assigns the initial weight for each input token (word/punctuation/media/timestamp). Currently always returns `1` — a policy hook for future logic. |
-| `layerAssigner.py` | The pipeline hub. Watches both `input.events` and `output.events`; for each message it timestamps it, tokenizes the text, assigns weights (via `inputThinker` for input, default `1` for output), and hands the structured line to `writerToDatabase`. |
+| `hub.py` | The pipeline hub (renamed from `layerAssigner.py`). Watches both `input.events` and `output.events`; for each message it timestamps it, tokenizes the text, assigns weights (via `inputThinker` for input, default `1` for output), and hands the structured line to `writerToDatabase`. |
+| `layerAssigner.py` | Compatibility shim — re-exports `hub.py`. Deprecated; use `hub.py` directly. |
 | `timeStamper.py` | Returns the current system time as integer epoch seconds. |
-| `writerToDatabase.py` | Persists `memory/chatLog` and implements the weight-accumulation rule (see [chatLog format](#chatlog-format)). Run standalone to print accumulated weights per token, heaviest first. |
+| `db.py` | SQLite backend. Implements the volume architecture (`memory/weights.db` + `memory/volumes/chatLog.NNNN.db`), the `record()` write path, and the global token-weight cache. Write cost is O(k log N) per message. |
+| `writerToDatabase.py` | Thin facade over `db.py`. Preserves the `record()` / `main()` interface for existing callers. Run standalone to print accumulated weights per token, heaviest first. |
+| `tools/exportChatlog.py` | Converter: reads the SQLite store and emits the legacy TAB-separated `chatLog` text format to stdout or a file. Supports range, direction, token filter, format, and `--follow` options. |
+| `tools/dbMaintain.py` | Maintenance utility: `integrity`, `rebuild-weights`, `vacuum`, `backup`, `stats`, `prune` subcommands. |
 | `wordOccurrenceCounter.py` | **Not implemented.** Empty stub. |
 | `bus.py` | Shared helper backing the file-based message bus: `publish(channel, *fields)` appends a TAB-separated line; `tail(channel)` is a polling generator that yields new lines as they appear. Backs onto `temp/`. |
 | `run.sh` | Starts `layerAssigner.py`, `outputThinker.py`, and `beater.py` together and supervises them (see [Stopping](#stopping)). |
 | `docs/` | Empty; reserved for future documentation. |
 
-## chatLog format
+## Database format
 
-`memory/chatLog` is plain text, one message per line, TAB-separated fields:
+Persistent memory lives in two SQLite files under `memory/`:
+
+**`memory/weights.db`** — global tables:
+- `token_weights(form, total_weight)` — one row per unique token form; `total_weight` is the sum of all initial weights contributed by that form across all history.
+- `volume_manifest(volume_n, seq_min, seq_max, epoch_min, epoch_max, status, byte_size)` — one row per volume file; `status` is `active` or `sealed`.
+- `meta(key, value)` — `schema_version`, `created_at`, `next_seq`.
+
+**`memory/volumes/chatLog.NNNN.db`** — per-volume tables (one file per ≤ 1 GB slice):
+- `messages(id, seq, direction, created_epoch)` — one row per message; `seq` is globally monotonic.
+- `occurrences(id, message_id, field, position, form, initial_weight)` — one row per token occurrence; `field`: 0 = media, 1 = timestamp, 2 = words; `initial_weight` is the per-occurrence delta, not the display total.
+
+**Weight accumulation rule**: every time a token *form* is recorded, its `initial_weight` is added to `token_weights.total_weight` for that form. The display weight for any occurrence is always the current `total_weight` — identical to the legacy "all occurrences of a form share one total" invariant, achieved here without rewriting history. Write cost is O(k log N) for a message of k tokens (down from O(file size) in the flat-file implementation).
+
+**Legacy text format**: `tools/exportChatlog.py` reproduces the original TAB-separated format on demand:
 
 ```
 <direction>\t<media pairs>\t<timestamp pairs>\t<word pairs>
 ```
 
-- **`<direction>`** — `input` or `output`. Plain tag, no weight.
-- **`<media pairs>`**, **`<timestamp pairs>`**, **`<word pairs>`** — each is a
-  space-separated *positional* sequence: even index = token, odd index = that
-  token's weight (e.g. `bash illya 1 2` = tokens `bash`/`illya`, weights `1`/`2`).
-  Positional pairs are used instead of a `token:weight` delimiter because a token
-  can itself be punctuation or a number (the epoch timestamp), so no single
-  separator character is guaranteed safe to embed.
-
-Example, after `illya` types `hello world` and the program responds (both within
-the same second, so the timestamp token itself accumulates to weight `2`):
+Each pair field is a space-separated positional sequence (even index = token, odd index = current total weight). Example:
 
 ```
 input	bash 1 illya 1	1782648544 2	hello 1 world 1
 output	program 1 jrvs 1	1782648544 2	беззмістовно 1
 ```
-
-**Weight accumulation rule**: every time a token *form* (exact text match) is
-recorded again anywhere in chatLog — as a word, as part of the media field, or as
-part of the timestamp — its initial weight is added to that form's running total,
-and **every** existing occurrence of that form in the file is rewritten to the new
-total. So if `illya` appears 5 times across the whole log, all 5 occurrences show
-the same (current) total weight, not their individual original weights. This is
-implemented in `writerToDatabase.record()`.
 
 ## Starting
 
@@ -138,8 +145,9 @@ echo -e "bash anonymous\thello there" >> temp/input.events
 Inspect accumulated weights at any time, even while everything is running:
 
 ```sh
-python3 writerToDatabase.py   # token totals, heaviest first
-cat memory/chatLog
+python3 writerToDatabase.py        # token totals, heaviest first
+python3 tools/exportChatlog.py     # full history in legacy TAB-separated format
+python3 tools/dbMaintain.py stats  # database size, row counts, volume listing
 ```
 
 ## Known limitations
