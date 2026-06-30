@@ -7,6 +7,9 @@ term such as "1" matches only tokens whose text is "1" -- never the weight
 value "1" that follows some other token.  Likewise, changing a weight rewrites
 only the weight slot of matching tokens, not other tokens whose text happens to
 equal the new weight value.
+
+TODO bulk change of weights
+TODO change of weights of certain abonent
 """
 import os
 import tkinter as tk
@@ -113,7 +116,8 @@ class App(tk.Tk):
         self._entry.bind("<Return>", lambda _e: self._search())
         self._entry.focus_set()
 
-        tk.Button(row_search, text="Search", command=self._search).pack(side="left")
+        self._btn(row_search, "Search", self._search).pack(side="left")
+        self._btn(row_search, "Clear",  self._clear ).pack(side="left", padx=(6, 0))
 
         # ── feedback area ───────────────────────────────────────────────────
         feedback = tk.Frame(outer)
@@ -141,9 +145,25 @@ class App(tk.Tk):
         self._weight_entry.pack(side="left", padx=(2, 8))
         self._weight_entry.bind("<Return>", lambda _e: self._change())
 
-        tk.Button(self._found_row, text="Change", command=self._change).pack(side="left")
+        self._btn(self._found_row, "Change", self._change).pack(side="left")
+
+    # ── helpers ──────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _btn(parent, text, cmd):
+        """Create a Button that responds to both mouse click and Enter key."""
+        b = tk.Button(parent, text=text, command=cmd)
+        b.bind("<Return>", lambda _e: cmd())
+        return b
 
     # ── actions ──────────────────────────────────────────────────────────────
+
+    def _clear(self):
+        self._word_var.set("")
+        self._found_row.pack_forget()
+        self._msg.config(text="", fg="black")
+        self._current_token = None
+        self._entry.focus_set()
 
     def _search(self):
         token = self._word_var.get()          # preserve case; strip nothing
